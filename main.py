@@ -8,7 +8,7 @@ def solution_a():
     for s_index, s in enumerate(tagged_sents):
         for w_index, w_t in enumerate(s):
             w, t = w_t
-            t = re.split('[+ -]', t)[0]
+            t = re.split(r'[*-+]', t)[0]
             tagged_sents[s_index][w_index] = (w, t)
 
     ninenty_percent_index = int(0.9 * len(tagged_sents))
