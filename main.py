@@ -50,107 +50,143 @@ def get_transition(prev, curr, transition_dict):
     return transition_dict.get((prev, curr), 0)
 
 
-def viterbi(s, S, train_words, transition_dict, emission_dict):
-    n, t = len(s)-1, len(S)
-    S_0 = ['START']
-    pi, bp = np.zeros(shape=(n, t)), np.empty(shape=(n, t), dtype=object)  # probabilities
-
-    # init arrays
-    for i in range(t):
-        pi[0, i] = 1
-        bp[0, i] = 'START'
-
-    # calculate matrices, n is calculated later
-    for k in range(1, n-1):
-        x_k = s[k][0]
-        for i_v, v in enumerate(S):
-            S_k_1 = S if k > 1 else S_0
-            arg_max, max = 'NN', 0
-            for i_u, u in enumerate(S_k_1):
-                pi_k_1_u = pi[k - 1, i_u]
-                transition_v_u = get_transition(u, v, transition_dict)
-                emission_x_k_v = get_emission(x_k, v, train_words, emission_dict)
-                pi_k_v = pi_k_1_u * transition_v_u * emission_x_k_v
-                if pi_k_v > max:
-                    max = pi_k_v
-                    arg_max = u
-            pi[k, i_v] = max
-            bp[k, i_v] = arg_max
-
-
-    #
-    # # final row for STOP
-    # arg_max, max = 'NN', 0
-    # k, v, i_v = n - 1, 'STOP', n - 1
-    # v, i_v = 'STOP', n - 1
-    # for i_u, u in enumerate(S):
-    #     pi_k_1_u = pi[k - 1, i_u]
-    #     transition_v_u = get_transition(u, v, transition_dict)
-    #     pi_k_v = pi_k_1_u * transition_v_u
-    #     if pi_k_v > max:
-    #         max = pi_k_v
-    #         arg_max = u
-    # pi[k, i_v], bp[k, i_v] = max, arg_max  # pi[m-1, i_v], bp[m-1, i_v]
-
-    # backtrack
-    predicted_tags = np.empty(shape=(n - 2), dtype=object)
-    arg_max_index = np.argmax(pi[n - 1])
-    predicted_tags[-1] = (bp[n - 1, arg_max_index], arg_max_index)  #
-    # START, y1,y2,...,y(n-2),y(n-1)=STOP
-    for i in range(n - 2, 0, -1):
-        # y_i = bp(i+1, y_i+1)
-        index = i-1
-        predicted_tags[index] = (bp[i + 1, predicted_tags[index + 1][1]], predicted_tags[index + 1][1])
-    word_tags = [tag[0] for tag in predicted_tags]
-    return word_tags
-
-
-def solution_c(train_set, test_set):
-    def get_dictionaries(train_padded):
-        word_counter, tag_counter, tag_tuples_counter, word_tag_counter = dict(), dict(), dict(), dict()
-        transition_dict, emission_dict = dict(), dict()
-
-        for s in train_padded:
-            window_s = s[1:]
-            for i, w_t in enumerate(window_s):
-                index = i + 1
-                w, t = w_t
-                if w not in word_counter.keys():
-                    word_counter[w] = 0
-                word_counter[w] += 1
-                if t not in tag_counter.keys():
-                    tag_counter[t] = 0
-                tag_counter[t] += 1
-                if w_t not in word_tag_counter.keys():
-                    word_tag_counter[w_t] = 0
-                word_tag_counter[w_t] += 1
-                previous_tag = s[index - 1][1]
-                if previous_tag not in tag_tuples_counter.keys():
-                    tag_tuples_counter[previous_tag] = {t: 0}
-                elif t not in tag_tuples_counter[previous_tag].keys():
-                    tag_tuples_counter[previous_tag] = {t: 0}
-                tag_tuples_counter[previous_tag][t] += 1
-                # y2|y1 = #(y1,y2) / #(y1)
-                # x1|y1 = #(x1,y1) / #(y1)
-        tag_counter['START'] = len(train_padded)
-
-        for c_w_t in word_tag_counter.keys():
-            c_w, c_t = c_w_t
-            emission_dict[c_w_t] = word_tag_counter[c_w_t] / tag_counter[c_t]
-        for prev_tag in tag_tuples_counter.keys():
-            # amount_prev = tag_counter[prev_tag]
-            amount_prev = sum(tag_tuples_counter[prev_tag].values())
-            for current_tag, tuple_amount in tag_tuples_counter[prev_tag].items():
-                transition_dict[(prev_tag, current_tag)] = tuple_amount / amount_prev
-        return transition_dict, emission_dict, tag_counter.keys(), word_counter.keys()
-
-    train_padded, test_padded = add_padding_to_sets(train_set, test_set)
-    transition_dict, emission_dict, train_tags, train_words = get_dictionaries(train_padded)
-    viterbi(test_set[17], train_tags, train_words, transition_dict, emission_dict)
-    viterbi_tagging = {}
+# def viterbi(s, S, train_words, transition_dict, emission_dict):
+#     n, t = len(s), len(S)
+#     S_0 = ['START']
+#     pi, bp = np.zeros(shape=(n - 1, t)), np.empty(shape=(n - 1, t), dtype=object)  # probabilities
+#
+#     # init arrays
+#     for i in range(t):
+#         pi[0, i] = 1
+#         bp[0, i] = 'START'
+#
+#     # calculate matrices, n is calculated later
+#     for k in range(1, n - 1):
+#         x_k = s[k][0]  # x1->y1 ... xn->yn
+#         # now we fill bp[k-1]
+#         for i_v, v in enumerate(S):
+#             S_k_1 = S if k > 1 else S_0
+#             arg_max, max = 'NN', 0
+#             for i_u, u in enumerate(S_k_1):
+#                 pi_k_1_u = pi[k - 1, i_u]
+#                 transition_v_u = get_transition(u, v, transition_dict)
+#                 emission_x_k_v = get_emission(x_k, v, train_words, emission_dict)
+#                 pi_k_v = pi_k_1_u * transition_v_u * emission_x_k_v
+#                 if pi_k_v > max:
+#                     max = pi_k_v
+#                     arg_max = u
+#             pi[k, i_v] = max
+#             bp[k, i_v] = arg_max
+#
+#     # backtrack
+#     predicted_tags = np.empty(shape=(n - 2), dtype=object)
+#     arg_max, tag_max = get_max_pi_q(pi, n - 2, S, transition_dict)
+#     predicted_tags[-1] = (tag_max, arg_max)  # y_n....y_1 # x_n-1
+#     # START, y1,y2,...,y(n-2),y(n-1)=STOP
+#     # predicted_tags = 0 ,..., n-3=already have
+#     for i in range(n - 4, -1, -1):
+#         predicted_tags[i] = (bp[i + 1, predicted_tags[i + 1][1]], predicted_tags[i + 1][1])
+#     word_tags = [tag[0] for tag in predicted_tags]
+#     return word_tags
+#
+#
+# def get_max_pi_q(pi, n, S, transition_dict):
+#     # final row for STOP
+#     arg_max, tag_max, max = 0, 'NN', 0
+#     k, stop = n, 'STOP'
+#     for i_u, u in enumerate(S):
+#         pi_c = pi[n, i_u]
+#         transition_v_u = get_transition(u, stop, transition_dict)
+#         current_max = pi_c * transition_v_u
+#         if current_max > max:
+#             max = current_max
+#             arg_max = i_u
+#             tag_max = u
+#     return arg_max, tag_max
 
 
-def add_padding_to_sets(train_set, test_set):
+# def solution_c(train_set, test_set):
+#     def get_dictionaries(train_padded):
+#         word_counter, tag_counter, tag_tuples_counter, word_tag_counter = dict(), dict(), dict(), dict()
+#         transition_dict, emission_dict = dict(), dict()
+#
+#         for s in train_padded:
+#             window_s = s[1:]
+#             for i, w_t in enumerate(window_s):
+#                 index = i + 1
+#                 w, t = w_t
+#                 if w not in word_counter.keys():
+#                     word_counter[w] = 0
+#                 word_counter[w] += 1
+#                 if t not in tag_counter.keys():
+#                     tag_counter[t] = 0
+#                 tag_counter[t] += 1
+#                 if w_t not in word_tag_counter.keys():
+#                     word_tag_counter[w_t] = 0
+#                 word_tag_counter[w_t] += 1
+#                 previous_tag = s[index - 1][1]
+#                 if previous_tag not in tag_tuples_counter.keys():
+#                     tag_tuples_counter[previous_tag] = {t: 0}
+#                 elif t not in tag_tuples_counter[previous_tag].keys():
+#                     tag_tuples_counter[previous_tag] = {t: 0}
+#                 tag_tuples_counter[previous_tag][t] += 1
+#                 # y2|y1 = #(y1,y2) / #(y1)
+#                 # x1|y1 = #(x1,y1) / #(y1)
+#         tag_counter['START'] = len(train_padded)
+#
+#         for c_w_t in word_tag_counter.keys():
+#             c_w, c_t = c_w_t
+#             emission_dict[c_w_t] = word_tag_counter[c_w_t] / tag_counter[c_t]
+#         for prev_tag in tag_tuples_counter.keys():
+#             # amount_prev = tag_counter[prev_tag]
+#             amount_prev = sum(tag_tuples_counter[prev_tag].values())
+#             for current_tag, tuple_amount in tag_tuples_counter[prev_tag].items():
+#                 transition_dict[(prev_tag, current_tag)] = tuple_amount / amount_prev
+#         return transition_dict, emission_dict, tag_counter.keys(), word_counter.keys()
+#
+#     train_padded, test_padded = add_padding_to_sets(train_set, test_set)
+#     transition_dict, emission_dict, train_tags, train_words = get_dictionaries(train_padded)
+#
+#     accuracy_known, known_count = 0, 0
+#     accuracy_unknown, unknown_count = 0, 0
+#     accuracy_total = 0
+#     for i, sentence in enumerate(test_set):
+#         words = [w_t[0] for w_t in sentence]
+#         current_tags = viterbi(words, train_tags, train_words, transition_dict, emission_dict)
+#         for j, w_t in enumerate(sentence[1:-1]):
+#             w, t = w_t
+#             if w in train_words:
+#                 known_count += 1
+#                 if current_tags[j] == t:
+#                     accuracy_known += 1
+#                     accuracy_total += 1
+#             else:
+#                 unknown_count += 1
+#                 if current_tags[j] == t:
+#                     accuracy_unknown += 1
+#                     accuracy_total += 1
+#     print("------------ QUESTION C ------------")
+#     print("error for known words:", 1 - (accuracy_known / known_count))
+#     print("------------------------------------")
+#     print("error for unknown words:", 1 - (accuracy_unknown / unknown_count))
+#     print("------------------------------------")
+#     print("total error:", 1 - (accuracy_total / (known_count + unknown_count)))
+#     print("------------------------------------")
+#
+#
+# def add_padding_to_sets(train_set, test_set):
+#     STOP_tuple, START_tuple = ('STOP', 'STOP'), ('START', 'START')
+#     for s in train_set:
+#         s.insert(0, START_tuple)
+#         s.append(STOP_tuple)
+#     for s in test_set:
+#         s.insert(0, START_tuple)
+#         s.append(STOP_tuple)
+#     return train_set, test_set
+#
+#
+
+def add_padding_to_set(train_set, test_set):
     STOP_tuple, START_tuple = ('STOP', 'STOP'), ('START', 'START')
     for s in train_set:
         s.insert(0, START_tuple)
@@ -159,6 +195,54 @@ def add_padding_to_sets(train_set, test_set):
         s.insert(0, START_tuple)
         s.append(STOP_tuple)
     return train_set, test_set
+
+def solution_c(train_set, test_set):
+    def get_dictionaries(train_padded):
+        word_counter, tag_counter, tag_tuples_counter, word_tag_counter = dict(), dict(), dict(), dict()
+        transition_dict, emission_dict = dict(), dict()
+
+        for s in train_padded:
+            window_s = s[:-1]
+            for i, prev_tuple in enumerate(window_s):
+                prev_word, prev_tag = window_s[i]
+                current_word, current_tag = window_s[i + 1]
+
+                if prev_word not in word_counter.keys():
+                    word_counter[prev_word] = 0
+                word_counter[prev_word] += 1
+
+                if prev_tag not in tag_counter.keys():
+                    tag_counter[prev_tag] = 0
+                tag_counter[prev_tag] += 1
+
+                if prev_tuple not in word_tag_counter.keys():
+                    word_tag_counter[prev_tuple] = 0
+                word_tag_counter[prev_tuple] += 0
+
+                if (prev_tag, current_tag) not in tag_tuples_counter.keys():
+                    if prev_tag not in tag_tuples_counter.keys():
+                        tag_tuples_counter[prev_tag] = {current_tag: 0}
+                    elif current_tag not in tag_tuples_counter[prev_tag].keys():
+                        tag_tuples_counter[prev_tag] = {current_tag: 0}
+                tag_tuples_counter[prev_tag][current_tag] += 1
+
+        for c_w_t in word_tag_counter.keys():
+            c_w, c_t = c_w_t
+            emission_dict[c_w_t] = word_tag_counter[c_w_t] / tag_counter[c_t]
+        for prev_tag in tag_tuples_counter.keys():
+            amount_prev = sum(tag_tuples_counter[prev_tag].values())
+            for current_tag, tuple_amount in tag_tuples_counter[prev_tag].items():
+                transition_dict[(prev_tag, current_tag)] = tuple_amount / amount_prev
+        return transition_dict, emission_dict, tag_counter.keys(), word_counter.keys()
+
+    train_padded, test_padded = add_padding_to_set(train_set, test_set)
+    transition_dict, emission_dict, train_tags, train_words = get_dictionaries(train_padded)
+
+
+def viterbi(sentence, transition_dict, emission_dict, train_words, train_tags):
+    word_number = len(sentence)
+
+
 
 
 def get_error_rate(test_set, MLE_dict, unknown_word_tag_dict):
