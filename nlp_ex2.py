@@ -352,7 +352,7 @@ def solution_e_1(train_set, test_set):
                     accuracy_unknown += 1
                     accuracy_total += 1
 
-    print("------------ QUESTION E2 ------------")
+    print("------------ QUESTION E1 ------------")
     print("------------------------------------")
     print("total error:", 1 - (accuracy_total / (known_count + unknown_count)))
     print("------------------------------------")
@@ -360,19 +360,18 @@ def solution_e_1(train_set, test_set):
 
 def get_all_tags(train_set, test_set):
     all_tags = []
-    all_tags=np.array(all_tags)
     for s in train_set:
         for w_t in s:
-            np.append(all_tags, [w_t[1]])
+            all_tags += [w_t[1]]
     for s in test_set:
         for w_t in s:
-            np.append(all_tags, [w_t[1]])
-    return np.unique(all_tags)
+            all_tags += [w_t[1]]
+    return list(set(all_tags))
 
 
 def get_by_confusion_index(true_tag, predicted_tag, all_tags):
-    i = np.where(all_tags == true_tag)[0]
-    j = np.where(all_tags == predicted_tag)[0]
+    i = np.where(all_tags == true_tag)[0][0]
+    j = np.where(all_tags == predicted_tag)[0][0]
     return i, j
 
 
@@ -448,8 +447,16 @@ def solution_e_2(train_set, test_set):
     print("total error:", 1 - (accuracy_total / (known_count + unknown_count)))
     print("------------------------------------")
 
-    print(confusion_matrix)
-    ax = sns.heatmap(confusion_matrix)
+    max_val = np.amax(confusion_matrix)
+    most_frequent_errors = []
+    for i in range(len(confusion_matrix)):
+        for j in range(len(confusion_matrix)):
+            if confusion_matrix[i][j] > int(max_val / 2):
+                most_frequent_errors.append([all_tags[i], all_tags[j]])
+
+    print(most_frequent_errors)
+
+    ax = sns.heatmap(np.log(confusion_matrix))
     plt.show()
 
 
@@ -458,5 +465,5 @@ if __name__ == '__main__':
     # solution_b(train_set, test_set)
     # solution_c(train_set, test_set)
     # solution_d(train_set, test_set)
-    # solution_e_1(train_set, test_set)
-    solution_e_2(train_set, test_set)
+    solution_e_1(train_set, test_set)
+    # solution_e_2(train_set, test_set)
