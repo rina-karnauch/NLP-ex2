@@ -292,8 +292,6 @@ def get_pseudo_word(word, count):
     if len(word) > 3:
         if word[-3:] == 'ing':
             return '__ing__'
-    if word[0] == "'" and word[-1] == "'" or word[0] == '"' and word[-1] == '"':
-        return '__quote__'
     return '__general__'
 
 
@@ -428,19 +426,17 @@ def solution_e_2(train_set, test_set):
                 if current_tags[w_t_i] == t:
                     accuracy_known += 1
                     accuracy_total += 1
-                else:
-                    true_tag, predicted_tag = t, current_tags[w_t_i]
-                    a, b = get_by_confusion_index(true_tag, predicted_tag, np.array(all_tags))
-                    confusion_matrix[a, b] += 1
+                true_tag, predicted_tag = t, current_tags[w_t_i]
+                a, b = get_by_confusion_index(true_tag, predicted_tag, np.array(all_tags))
+                confusion_matrix[a, b] += 1
             else:
                 unknown_count += 1
                 if current_tags[w_t_i] == t:
                     accuracy_unknown += 1
                     accuracy_total += 1
-                else:
-                    true_tag, predicted_tag = t, current_tags[w_t_i]
-                    a, b = get_by_confusion_index(true_tag, predicted_tag, all_tags)
-                    confusion_matrix[a, b] += 1
+                true_tag, predicted_tag = t, current_tags[w_t_i]
+                a, b = get_by_confusion_index(true_tag, predicted_tag, np.array(all_tags))
+                confusion_matrix[a, b] += 1
 
     print("------------ QUESTION E2 ------------")
     print("------------------------------------")
@@ -449,12 +445,16 @@ def solution_e_2(train_set, test_set):
 
     max_val = np.amax(confusion_matrix)
     most_frequent_errors = []
+    correctly_predicted_tags = []
     for i in range(len(confusion_matrix)):
+        if confusion_matrix[i][i] > 0:
+            correctly_predicted_tags.append(all_tags[i])
         for j in range(len(confusion_matrix)):
-            if confusion_matrix[i][j] > int(max_val / 2):
+            if confusion_matrix[i][j] > int(max_val/2):
                 most_frequent_errors.append([all_tags[i], all_tags[j]])
 
     print(most_frequent_errors)
+    print(correctly_predicted_tags)
 
     ax = sns.heatmap(np.log(confusion_matrix))
     plt.show()
@@ -465,5 +465,5 @@ if __name__ == '__main__':
     # solution_b(train_set, test_set)
     # solution_c(train_set, test_set)
     # solution_d(train_set, test_set)
-    solution_e_1(train_set, test_set)
-    # solution_e_2(train_set, test_set)
+    # solution_e_1(train_set, test_set)
+    solution_e_2(train_set, test_set)
